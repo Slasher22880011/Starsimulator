@@ -1,0 +1,42 @@
+<html>
+<style> @import url('style.css'); </style>
+    <head>
+        <title>Hackstars</title>
+    </head>
+    <body>
+    <div class="overlay">
+        <div class="title">Particle Shockwave</div>
+        <div class="subtitle">Interactive Particle Field with Physical Wave</div>
+    </div>
+
+    <div class="hint" id="hint">Click anywhere to start a wave</div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="forceSlider">Wave Force:</label>
+            <input type="range" id="forceSlider" min="20" max="120" value="60">
+        </div>
+        <div class="control-group">
+            <label for="speedSlider">Speed:</label>
+            <input type="range" id="speedSlider" min="3" max="15" value="7">
+        </div>
+        <button class="toggle-btn active" id="audioToggle">Audio: AN</button>
+        <button class="toggle-btn" id="clearBtn">Reset Stars</button>
+    </div>
+
+    <div class="controls bottom-right">
+        <div class="control-group">
+            <label for="zoomSlider">Zoom Out:</label>
+            <input type="range" id="zoomSlider" min="1" max="4" value="1" step="1">
+        </div>
+        <div class="control-group toggle-group">
+            <label><input type="checkbox" id="colorToggle" checked> colorfull stars</label>
+        </div>
+        <div class="control-group toggle-group">
+            <label><input type="checkbox" id="bgToggle"> milkyway</label>
+        </div>
+    </div>
+    <canvas id="canvas"></canvas>
+    </body>
+    <script src="script.js"></script>
+</html>
