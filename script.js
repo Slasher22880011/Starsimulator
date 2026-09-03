@@ -8,15 +8,19 @@ const clearBtn = document.getElementById('clearBtn');
 const zoomSlider = document.getElementById('zoomSlider');
 const colorToggle = document.getElementById('colorToggle');
 const bgToggle = document.getElementById('bgToggle');
+const trailToggle = document.getElementById('trailToggle');
+const implodeToggle = document.getElementById('implodeToggle');
 
 let width, height;
 let stars = [];
+let bgStars = [];
 let shockwaves = [];
 let mouse = { x: null, y: null, radius: 100 };
 let audioEnabled = true;
 let zoomLevel = 1;
 let useColorStars = true;
 let useMilkyWay = false;
+let useTrails = true;
 
 let audioCtx = null;
 
@@ -30,7 +34,7 @@ function initAudio() {
     }
 }
 
-function playWaveSound(frequency = 180) {
+function playWaveSound(isImplosion = false) {
     if (!audioEnabled) return;
     try {
         initAudio();
@@ -38,8 +42,14 @@ function playWaveSound(frequency = 180) {
         const gain = audioCtx.createGain();
 
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.6);
+        
+        if (isImplosion) {
+            osc.frequency.setValueAtTime(40, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.6);
+        } else {
+            osc.frequency.setValueAtTime(180 + Math.random() * 60, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.6);
+        }
 
         gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
@@ -50,7 +60,7 @@ function playWaveSound(frequency = 180) {
         osc.start();
         osc.stop(audioCtx.currentTime + 0.6);
     } catch (e) {
-        console.log('Audio noch nicht gestartet');
+        console.log('Audio Context Error', e);
     }
 }
 
@@ -58,6 +68,7 @@ function resize() {
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight;
     createStars();
+    createBgStars();
 }
 
 class Star {
@@ -68,7 +79,8 @@ class Star {
         this.y = this.baseY;
         this.vx = 0;
         this.vy = 0;
-        this.size = Math.random() * 2 + 0.8;
+        this.size = Math.random() * 2 + 0.8; 
+        this.mass = this.size;
         this.color = this.getRandomColor();
         this.alpha = Math.random() * 0.7 + 0.3;
         this.springK = 0.03;
@@ -93,6 +105,9 @@ class Star {
         this.x += this.vx;
         this.y += this.vy;
 
+        if (this.x < 0 || this.x > width) this.vx *= -0.5;
+        if (this.y < 0 || this.y > height) this.vy *= -0.5;
+
         if (mouse.x !== null) {
             const mdx = this.x - mouse.x;
             const mdy = this.y - mouse.y;
@@ -100,19 +115,26 @@ class Star {
             if (dist < mouse.radius) {
                 const force = (mouse.radius - dist) / mouse.radius;
                 const angle = Math.atan2(mdy, mdx);
-                this.vx += Math.cos(angle) * force * 1.2;
-                this.vy += Math.sin(angle) * force * 1.2;
+                this.vx += Math.cos(angle) * force * 1.5;
+                this.vy += Math.sin(angle) * force * 1.5;
             }
         }
     }
 
     draw() {
+        const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+        let drawColor = this.color;
+        
+        if (speed > 8 && useColorStars) {
+            drawColor = '#00ffcc';
+        }
+
         ctx.save();
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fillStyle = this.color;
+        ctx.fillStyle = drawColor;
         ctx.globalAlpha = this.alpha;
-        ctx.shadowColor = this.color;
+        ctx.shadowColor = drawColor;
         ctx.shadowBlur = this.size * 3;
         ctx.fill();
         ctx.restore();
@@ -120,30 +142,44 @@ class Star {
 }
 
 class Shockwave {
-    constructor(x, y, maxRadius, force, speed) {
+    constructor(x, y, maxRadius, force, speed, isImplode) {
         this.x = x;
         this.y = y;
-        this.radius = 0;
+        this.radius = isImplode ? maxRadius : 0;
         this.maxRadius = maxRadius;
-        this.thickness = 35;
+        this.thickness = 45;
         this.force = force;
         this.speed = speed;
         this.alpha = 1;
+        this.isImplode = isImplode;
     }
 
     update() {
-        this.radius += this.speed;
-        this.alpha = 1 - (this.radius / this.maxRadius);
+        if (this.isImplode) {
+            this.radius -= this.speed * 2;
+            this.alpha = (this.radius / this.maxRadius);
+        } else {
+            this.radius += this.speed;
+            this.alpha = 1 - (this.radius / this.maxRadius);
+        }
 
         stars.forEach(star => {
             const dx = star.x - this.x;
             const dy = star.y - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             const waveStart = this.radius - this.thickness;
-            const waveEnd = this.radius;
+            const waveEnd = this.radius + this.thickness;
+            
             if (dist >= waveStart && dist <= waveEnd) {
                 const angle = Math.atan2(dy, dx);
-                const waveImpact = (1 - (this.radius / this.maxRadius)) * this.force;
+                let waveImpact = this.force * (star.mass * 0.4);
+                
+                if (this.isImplode) {
+                    waveImpact *= -1.5;
+                } else {
+                    waveImpact *= (1 - (this.radius / this.maxRadius));
+                }
+
                 star.vx += Math.cos(angle) * waveImpact;
                 star.vy += Math.sin(angle) * waveImpact;
                 star.alpha = 1;
@@ -156,22 +192,18 @@ class Shockwave {
         ctx.save();
         ctx.beginPath();
         ctx.arc(this.x, this.y, Math.max(0, this.radius), 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(0, 223, 216, ${this.alpha * 0.6})`;
+        
+        const color = this.isImplode ? '255, 0, 128' : '0, 223, 216';
+        ctx.strokeStyle = `rgba(${color}, ${this.alpha * 0.6})`;
         ctx.lineWidth = 2;
-        ctx.shadowColor = '#00dfd8';
+        ctx.shadowColor = `rgb(${color})`;
         ctx.shadowBlur = 15;
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, Math.max(0, this.radius - 15), 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(255, 0, 128, ${this.alpha * 0.4})`;
-        ctx.lineWidth = 1;
         ctx.stroke();
         ctx.restore();
     }
 
     isDead() {
-        return this.radius >= this.maxRadius || this.alpha <= 0;
+        return this.isImplode ? this.radius <= 0 : (this.radius >= this.maxRadius || this.alpha <= 0);
     }
 }
 
@@ -183,27 +215,37 @@ function createStars() {
     }
 }
 
+function createBgStars() {
+    bgStars = [];
+    for (let i = 0; i < 120; i++) {
+        bgStars.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            radius: Math.random() * 1.2,
+            alpha: Math.random() * 0.3
+        });
+    }
+}
+
 function drawBackground() {
+    const alpha = useTrails ? 0.25 : 1;
+
     if (useMilkyWay) {
         const gradient = ctx.createLinearGradient(0, height * 0.2, 0, height * 0.8);
-        gradient.addColorStop(0, '#04020a');
-        gradient.addColorStop(0.5, '#090716');
-        gradient.addColorStop(1, '#020108');
+        gradient.addColorStop(0, `rgba(4, 2, 10, ${alpha})`);
+        gradient.addColorStop(0.5, `rgba(9, 7, 22, ${alpha})`);
+        gradient.addColorStop(1, `rgba(2, 1, 8, ${alpha})`);
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, width, height);
-
-        for (let i = 0; i < 120; i++) {
-            const x = Math.random() * width;
-            const y = Math.random() * height;
-            const radius = Math.random() * 1.2;
-            const alpha = Math.random() * 0.2;
+        
+        bgStars.forEach(s => {
             ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha * alpha})`;
             ctx.fill();
-        }
+        });
     } else {
-        ctx.fillStyle = '#02030a';
+        ctx.fillStyle = `rgba(2, 3, 10, ${alpha})`;
         ctx.fillRect(0, 0, width, height);
     }
 }
@@ -220,6 +262,7 @@ function animate() {
         }
     }
 
+    stars.forceEach = undefined;
     stars.forEach(star => {
         star.update();
         star.draw();
@@ -241,21 +284,48 @@ window.addEventListener('mouseleave', () => {
     mouse.y = null;
 });
 
-window.addEventListener('click', (e) => {
-    if (e.target.closest('.controls')) return;
-
+function triggerShockwave(x, y, isImplode) {
     if (hint) hint.style.opacity = '0';
-
-    const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-
     const maxRadius = Math.max(width, height) * 0.6;
     const force = parseFloat(forceSlider.value) * 0.1;
     const speed = parseFloat(speedSlider.value);
 
-    shockwaves.push(new Shockwave(clickX, clickY, maxRadius, force, speed));
-    playWaveSound(180 + Math.random() * 60);
+    shockwaves.push(new Shockwave(x, y, maxRadius, force, speed, isImplode));
+    playWaveSound(isImplode);
+}
+
+window.addEventListener('click', (e) => {
+    if (e.target.closest('.controls')) return;
+    const rect = canvas.getBoundingClientRect();
+    triggerShockwave(e.clientX - rect.left, e.clientY - rect.top, implodeToggle.checked);
+});
+
+window.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('.controls')) return;
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    triggerShockwave(e.clientX - rect.left, e.clientY - rect.top, true);
+});
+
+canvas.addEventListener('touchstart', (e) => {
+    if (e.target.closest('.controls')) return;
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    triggerShockwave(touch.clientX - rect.left, touch.clientY - rect.top, implodeToggle.checked);
+    mouse.x = touch.clientX - rect.left;
+    mouse.y = touch.clientY - rect.top;
+}, { passive: true });
+
+canvas.addEventListener('touchmove', (e) => {
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = touch.clientX - rect.left;
+    mouse.y = touch.clientY - rect.top;
+}, { passive: true });
+
+canvas.addEventListener('touchend', () => {
+    mouse.x = null;
+    mouse.y = null;
 });
 
 audioToggle.addEventListener('click', () => {
@@ -273,13 +343,15 @@ zoomSlider.addEventListener('input', () => {
 
 colorToggle.addEventListener('change', () => {
     useColorStars = colorToggle.checked;
-    stars.forEach(star => {
-        star.color = star.getRandomColor();
-    });
+    stars.forEach(star => star.color = star.getRandomColor());
 });
 
 bgToggle.addEventListener('change', () => {
     useMilkyWay = bgToggle.checked;
+});
+
+trailToggle.addEventListener('change', () => {
+    useTrails = trailToggle.checked;
 });
 
 resize();

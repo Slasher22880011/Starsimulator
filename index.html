@@ -2,6 +2,7 @@
 <style> @import url('style.css'); </style>
     <head>
         <title>Hackstars</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     </head>
     <body>
     <div class="overlay">
@@ -9,7 +10,7 @@
         <div class="subtitle">Interactive Particle Field with Physical Wave</div>
     </div>
 
-    <div class="hint" id="hint">Click anywhere to start a wave</div>
+    <div class="hint" id="hint">Left Click: Explosion | Right Click: Implosion</div>
 
     <div class="controls">
         <div class="control-group">
@@ -30,10 +31,16 @@
             <input type="range" id="zoomSlider" min="1" max="4" value="1" step="1">
         </div>
         <div class="control-group toggle-group">
-            <label><input type="checkbox" id="colorToggle" checked> colorfull stars</label>
+            <label><input type="checkbox" id="trailToggle" checked> Motion Trails</label>
         </div>
         <div class="control-group toggle-group">
-            <label><input type="checkbox" id="bgToggle"> milkyway</label>
+            <label><input type="checkbox" id="implodeToggle"> Default to Implosion</label>
+        </div>
+        <div class="control-group toggle-group">
+            <label><input type="checkbox" id="colorToggle" checked> Colorful Stars</label>
+        </div>
+        <div class="control-group toggle-group">
+            <label><input type="checkbox" id="bgToggle"> Milky Way</label>
         </div>
     </div>
     <canvas id="canvas"></canvas>
